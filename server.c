@@ -1,5 +1,5 @@
 
-#include "server.h" 
+#include "server.h"
 #define BUFFER_SIZE 1024
 
 void get_hostname()
@@ -42,7 +42,7 @@ void get_cpu_name()
     }
 
     printf("%s", buffer);
-    
+
     pclose(f);
 }
 
@@ -61,7 +61,8 @@ void get_cpu_load()
     }
 
     check = fscanf(f, "cpu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu ", &f_user, &f_nice, &f_system, &f_idle, &f_iowait, &f_irq, &f_softirq, &f_steal, &f_guest, &f_guest_nice);
-    if(check != 10){
+    if (check != 10)
+    {
         fprintf(stderr, "Error: Incorrect read of /cpu/stats\n");
         exit(1);
     }
@@ -98,8 +99,30 @@ void get_cpu_load()
 
 int main(int argc, char **argv)
 {
-    get_hostname();
-    get_cpu_name();
-    get_cpu_load();
+
+    int opt = 1;
+    int sock1 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (setsockopt(sock1, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+    {
+        perror("Error:");
+        exit(1);
+    }
+
+    struct sockaddr_in sock1_addr;
+    sock1_addr.sin_family = AF_INET;
+    sock1_addr.sin_port = htons(8080);
+    bind(sock1, (struct sockaddr *)&sock1_addr, sizeof(sock1_addr));
+    listen(sock1, 10);
+    int new_socket;
+    int addr_l = sizeof(sock1_addr);
+    if ((new_socket = accept(sock1, (struct sockaddr *)&sock1_addr,
+                             (socklen_t *)&addr_l)) < 0)
+    {
+        perror("accept");
+        exit(EXIT_FAILURE);
+    }
+    char buffer[BUFFER_SIZE] = {0};
+    int valread = read(new_socket, buffer, 1024);
+    printf("%s\n", buffer);
     return 0;
 }
