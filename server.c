@@ -2,7 +2,7 @@
 #include "server.h"
 #define BUFFER_SIZE 1024
 
-void get_hostname()
+void get_hostname(int c_socket)
 {
     FILE *f = popen("hostname", "r");
     if (f == NULL)
@@ -19,12 +19,15 @@ void get_hostname()
         exit(1);
     }
 
-    printf("%s", buffer);
-
     pclose(f);
+
+    char response[BUFFER_SIZE] = {0};
+    strcat(response, HEADER);
+    strcat(response, buffer);
+    send(c_socket, response, strlen(response), 0);
 }
 
-void get_cpu_name()
+void get_cpu_name(int c_socket)
 {
     FILE *f = popen("cat /proc/cpuinfo | grep 'model name' | head -n 1 | awk -F ': ' '{print $2}'", "r");
     if (f == NULL)
@@ -41,14 +44,18 @@ void get_cpu_name()
         exit(1);
     }
 
-    printf("%s", buffer);
-
     pclose(f);
+
+    char response[BUFFER_SIZE] = {0};
+    strcat(response, HEADER);
+    strcat(response, buffer);
+    send(c_socket, response, strlen(response), 0);
 }
 
 // https://stackoverflow.com/a/23376195
-void get_cpu_load()
+void get_cpu_load(int c_socket)
 {
+
     unsigned long long int f_user, f_nice, f_system, f_idle, f_iowait, f_irq, f_softirq, f_steal, f_guest, f_guest_nice = 0;
     unsigned long long int s_user, s_nice, s_system, s_idle, s_iowait, s_irq, s_softirq, s_steal, s_guest, s_guest_nice = 0;
     int check = 0;
@@ -94,35 +101,119 @@ void get_cpu_load()
     unsigned long long int s_total = s_idle + s_user + s_nice + s_system + s_irq + s_softirq + s_steal;
 
     double cpu_load = 100.0 * ((((double)s_total - (double)f_total) - ((double)s_total_idle - (double)f_total_idle)) / ((double)s_total - (double)f_total));
-    printf("%.10f\n", cpu_load);
+
+    // TODO: Deal with boundary safe concat
+    char buffer[BUFFER_SIZE] = {0};
+    snprintf(buffer, BUFFER_SIZE, "%.3f", cpu_load);
+    strcat(buffer, "%");
+
+    char response[BUFFER_SIZE] = {0};
+    strcat(response, HEADER);
+    strcat(response, buffer);
+    send(c_socket, response, strlen(response), 0);
 }
 
-int main(int argc, char **argv)
+void parse_http_request(char *msg, int c_socket)
 {
 
-    int opt = 1;
-    int sock1 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (setsockopt(sock1, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+    if (strcmp(msg, HOSTNAME_STR) == 0)
     {
-        perror("Error:");
+        get_hostname(c_socket);
+    }
+
+    else if (strcmp(msg, CPU_NAME_STR) == 0)
+    {
+        get_cpu_name(c_socket);
+    }
+
+    else if (strcmp(msg, LOAD_STR) == 0)
+    {
+        get_cpu_load(c_socket);
+    }
+
+    else
+    {
+        send(c_socket, BAD_REQ, strlen(BAD_REQ), 0);
+    }
+}
+
+unsigned short parse_args(int argc, char **argv)
+{
+    if (argc != 2)
+    {
+        fprintf(stderr, "Incorrect parameters, to run the program use:\n\t./hinfo port_number\n");
         exit(1);
     }
 
-    struct sockaddr_in sock1_addr;
-    sock1_addr.sin_family = AF_INET;
-    sock1_addr.sin_port = htons(8080);
-    bind(sock1, (struct sockaddr *)&sock1_addr, sizeof(sock1_addr));
-    listen(sock1, 10);
-    int new_socket;
-    int addr_l = sizeof(sock1_addr);
-    if ((new_socket = accept(sock1, (struct sockaddr *)&sock1_addr,
-                             (socklen_t *)&addr_l)) < 0)
+    char *check = NULL;
+    unsigned long result = strtoul(argv[1], &check, 10);
+    if (*check != 0)
     {
-        perror("accept");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "The port number must be an unsigned integer.\n");
+        exit(1);
     }
-    char buffer[BUFFER_SIZE] = {0};
-    int valread = read(new_socket, buffer, 1024);
-    printf("%s\n", buffer);
-    return 0;
+
+    if (result > USHRT_MAX)
+    {
+        fprintf(stderr, "The port number must be in range 0-%d.\n", USHRT_MAX);
+        exit(1);
+    }
+
+    return (unsigned short)result;
 }
+int main(int argc, char **argv)
+{
+    unsigned short port_num = parse_args(argc, argv);
+
+    int serv_socket;
+    if ((serv_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == 0)
+    {
+        perror("Error while creating a server socket: ");
+        exit(1);
+    }
+
+    int socket_opt = 1;
+
+    if (setsockopt(serv_socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &socket_opt, sizeof(socket_opt)))
+    {
+        perror("Error while setting socket options: ");
+        exit(1);
+    }
+
+    struct sockaddr_in serv_addr;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(port_num);
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+
+    // TODO: Check for errors
+    bind(serv_socket, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+
+    listen(serv_socket, 3);
+
+    int c_socket;
+    while (1)
+    {
+        // TODO: Check for sleep time
+        if ((c_socket = accept(serv_socket, NULL, NULL)) < 0)
+        {
+            perror("Error in accept");
+            exit(1);
+        }
+
+        char buffer[BUFFER_SIZE] = {0};
+        read(c_socket, buffer, BUFFER_SIZE);
+
+        char *line = strtok(buffer, "\r");
+
+        parse_http_request(line, c_socket);
+
+        close(c_socket);
+    }
+    exit(0);
+}
+
+/*
+/hostname
+/cpu-name
+/load
+*/
