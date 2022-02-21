@@ -19,10 +19,8 @@
 #define CPU_NAME_STR "GET /cpu-name HTTP/1.1"
 #define LOAD_STR "GET /load HTTP/1.1"
 
-typedef enum requst_e 
-{
-    UNKNOWN,
-    HOSTNAME,
-    CPU_NAME,
-    LOAD
-} request_t;
+typedef struct socket_info{
+    int socket;
+    int opt;
+    struct sockaddr_in addr;
+} socket_info_t;

@@ -21,8 +21,9 @@ void get_hostname(int c_socket)
     pclose(f);
 
     char response[BUFFER_SIZE] = {0};
-    strncat(response, HEADER, BUFFER_SIZE-strlen(response));
-    strncat(response, buffer, BUFFER_SIZE-strlen(response));
+    strncat(response, HEADER, BUFFER_SIZE - strlen(response));
+    strncat(response, buffer, BUFFER_SIZE - strlen(response));
+    response[strlen(response) - 1] = 0;
     send(c_socket, response, strlen(response), 0);
 }
 
@@ -46,8 +47,9 @@ void get_cpu_name(int c_socket)
     pclose(f);
 
     char response[BUFFER_SIZE] = {0};
-    strncat(response, HEADER, BUFFER_SIZE-strlen(response));
-    strncat(response, buffer, BUFFER_SIZE-strlen(response));
+    strncat(response, HEADER, BUFFER_SIZE - strlen(response));
+    strncat(response, buffer, BUFFER_SIZE - strlen(response));
+    response[strlen(response) - 1] = 0;
     send(c_socket, response, strlen(response), 0);
 }
 
@@ -103,12 +105,12 @@ void get_cpu_load(int c_socket)
 
     // TODO: Deal with boundary safe concat
     char buffer[BUFFER_SIZE] = {0};
-    snprintf(buffer, BUFFER_SIZE, "%.3f", cpu_load);
-    strncat(buffer, "%\n", BUFFER_SIZE-strlen(buffer));
+    snprintf(buffer, BUFFER_SIZE, "%.0f", cpu_load);
+    strncat(buffer, "%", BUFFER_SIZE - strlen(buffer));
 
     char response[BUFFER_SIZE] = {0};
-    strncat(response, HEADER, BUFFER_SIZE-strlen(response));
-    strncat(response, buffer, BUFFER_SIZE-strlen(response));
+    strncat(response, HEADER, BUFFER_SIZE - strlen(response));
+    strncat(response, buffer, BUFFER_SIZE - strlen(response));
     send(c_socket, response, strlen(response), 0);
 }
 
@@ -160,39 +162,46 @@ unsigned short parse_args(int argc, char **argv)
 
     return (unsigned short)result;
 }
-int main(int argc, char **argv)
-{
-    unsigned short port_num = parse_args(argc, argv);
 
-    int serv_socket;
-    if ((serv_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == 0)
+socket_info_t prepare_socket(unsigned short port_num)
+{
+    socket_info_t serv;
+    if ((serv.socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == 0)
     {
         perror("Error while creating a server socket: ");
         exit(1);
     }
 
-    int socket_opt = 1;
+    serv.opt = 1;
 
-    if (setsockopt(serv_socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &socket_opt, sizeof(socket_opt)))
+    if (setsockopt(serv.socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &(serv.opt), sizeof(serv.opt)))
     {
         perror("Error while setting socket options: ");
         exit(1);
     }
 
-    struct sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(port_num);
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv.addr.sin_family = AF_INET;
+    serv.addr.sin_port = htons(port_num);
+    serv.addr.sin_addr.s_addr = INADDR_ANY;
 
     // TODO: Check for errors
-    bind(serv_socket, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    bind(serv.socket, (struct sockaddr *)&(serv.addr), sizeof(serv.addr));
 
-    listen(serv_socket, 3);
+    listen(serv.socket, 3);
+
+    return serv;
+}
+
+int main(int argc, char **argv)
+{
+    unsigned short port_num = parse_args(argc, argv);
+
+    socket_info_t serv = prepare_socket(port_num);
 
     int c_socket;
     while (1)
     {
-        if ((c_socket = accept(serv_socket, NULL, NULL)) < 0)
+        if ((c_socket = accept(serv.socket, NULL, NULL)) < 0)
         {
             perror("Error in accept");
             exit(1);
@@ -207,6 +216,7 @@ int main(int argc, char **argv)
 
         close(c_socket);
     }
+    close(serv.socket);
     exit(0);
 }
 
