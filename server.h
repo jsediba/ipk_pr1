@@ -9,6 +9,9 @@
 #include <limits.h>
 
 #define _GNU_SOURCE
+
+#define BUFFER_SIZE 1024
+
 #define BAD_REQ "HTTP/1.1 400 Bad Request"
 #define HEADER "HTTP/1.1 200 OK\r\nContent-Type:text/plain;\r\n\r\n"
 

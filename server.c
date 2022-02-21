@@ -1,6 +1,5 @@
 
 #include "server.h"
-#define BUFFER_SIZE 1024
 
 void get_hostname(int c_socket)
 {
@@ -22,8 +21,8 @@ void get_hostname(int c_socket)
     pclose(f);
 
     char response[BUFFER_SIZE] = {0};
-    strcat(response, HEADER);
-    strcat(response, buffer);
+    strncat(response, HEADER, BUFFER_SIZE-strlen(response));
+    strncat(response, buffer, BUFFER_SIZE-strlen(response));
     send(c_socket, response, strlen(response), 0);
 }
 
@@ -47,8 +46,8 @@ void get_cpu_name(int c_socket)
     pclose(f);
 
     char response[BUFFER_SIZE] = {0};
-    strcat(response, HEADER);
-    strcat(response, buffer);
+    strncat(response, HEADER, BUFFER_SIZE-strlen(response));
+    strncat(response, buffer, BUFFER_SIZE-strlen(response));
     send(c_socket, response, strlen(response), 0);
 }
 
@@ -105,11 +104,11 @@ void get_cpu_load(int c_socket)
     // TODO: Deal with boundary safe concat
     char buffer[BUFFER_SIZE] = {0};
     snprintf(buffer, BUFFER_SIZE, "%.3f", cpu_load);
-    strcat(buffer, "%");
+    strncat(buffer, "%\n", BUFFER_SIZE-strlen(buffer));
 
     char response[BUFFER_SIZE] = {0};
-    strcat(response, HEADER);
-    strcat(response, buffer);
+    strncat(response, HEADER, BUFFER_SIZE-strlen(response));
+    strncat(response, buffer, BUFFER_SIZE-strlen(response));
     send(c_socket, response, strlen(response), 0);
 }
 
@@ -193,7 +192,6 @@ int main(int argc, char **argv)
     int c_socket;
     while (1)
     {
-        // TODO: Check for sleep time
         if ((c_socket = accept(serv_socket, NULL, NULL)) < 0)
         {
             perror("Error in accept");
