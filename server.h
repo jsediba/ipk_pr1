@@ -24,3 +24,10 @@ typedef struct socket_info{
     int opt;
     struct sockaddr_in addr;
 } socket_info_t;
+
+void get_hostname(int c_socket);
+void get_cpu_name(int c_socket);
+void get_cpu_load(int c_socket);
+void parse_http_request(char *msg, int c_socket);
+unsigned short parse_args(int argc, char **argv);
+socket_info_t prepare_socket(unsigned short port_num);

@@ -1,8 +1,14 @@
 
 #include "server.h"
 
+/**
+ * @brief Send a HTTP response with hostname to a client
+ * 
+ * @param c_socket client socket
+ */
 void get_hostname(int c_socket)
 {
+    // Open a pipe to read the hostname and store it in a buffer
     FILE *f = popen("hostname", "r");
     if (f == NULL)
     {
@@ -20,6 +26,7 @@ void get_hostname(int c_socket)
 
     pclose(f);
 
+    // Create a proper HTTP response with hostname in plaintext content
     char response[BUFFER_SIZE] = {0};
     strncat(response, HEADER, BUFFER_SIZE - strlen(response));
     strncat(response, buffer, BUFFER_SIZE - strlen(response));
@@ -27,8 +34,15 @@ void get_hostname(int c_socket)
     send(c_socket, response, strlen(response), 0);
 }
 
+
+/**
+ * @brief Send a HTTP response with cpu name to a client
+ * 
+ * @param c_socket client socket
+ */
 void get_cpu_name(int c_socket)
 {
+    // Opens a pipe to read the cpu model name from /proc/cpuinfo and store it in a buffer
     FILE *f = popen("cat /proc/cpuinfo | grep 'model name' | head -n 1 | awk -F ': ' '{print $2}'", "r");
     if (f == NULL)
     {
@@ -46,6 +60,8 @@ void get_cpu_name(int c_socket)
 
     pclose(f);
 
+
+    // Create a proper HTTP response with cpu model name in plaintext content
     char response[BUFFER_SIZE] = {0};
     strncat(response, HEADER, BUFFER_SIZE - strlen(response));
     strncat(response, buffer, BUFFER_SIZE - strlen(response));
@@ -53,7 +69,14 @@ void get_cpu_name(int c_socket)
     send(c_socket, response, strlen(response), 0);
 }
 
-// https://stackoverflow.com/a/23376195
+
+/**
+ * @brief Send a HTTP response with cpu load to a client.
+ * 
+ * heavily inspired by https://stackoverflow.com/a/23376195
+ * 
+ * @param c_socket client socket
+ */
 void get_cpu_load(int c_socket)
 {
 
@@ -61,6 +84,7 @@ void get_cpu_load(int c_socket)
     unsigned long long int s_user, s_nice, s_system, s_idle, s_iowait, s_irq, s_softirq, s_steal, s_guest, s_guest_nice = 0;
     int check = 0;
 
+    // Loads the first batch of stats from the /procs/stat into variables
     FILE *f = popen("cat /proc/stat | head -n 1", "r");
     if (f == NULL)
     {
@@ -79,6 +103,8 @@ void get_cpu_load(int c_socket)
 
     sleep(1);
 
+    // Loads the second batch of stats from the /procs/stat into variables after sleeping for 1 second
+
     f = popen("cat /proc/stat | head -n 1", "r");
     if (f == NULL)
     {
@@ -95,6 +121,7 @@ void get_cpu_load(int c_socket)
 
     pclose(f);
 
+    // Caluclations to get cpu load
     unsigned long long int f_total_idle = f_idle + f_iowait;
     unsigned long long int f_total = f_idle + f_user + f_nice + f_system + f_irq + f_softirq + f_steal;
 
@@ -103,7 +130,9 @@ void get_cpu_load(int c_socket)
 
     double cpu_load = 100.0 * ((((double)s_total - (double)f_total) - ((double)s_total_idle - (double)f_total_idle)) / ((double)s_total - (double)f_total));
 
-    // TODO: Deal with boundary safe concat
+
+    // Create a proper HTTP response with cpu load in plaintext content
+
     char buffer[BUFFER_SIZE] = {0};
     snprintf(buffer, BUFFER_SIZE, "%.0f", cpu_load);
     strncat(buffer, "%", BUFFER_SIZE - strlen(buffer));
@@ -114,6 +143,12 @@ void get_cpu_load(int c_socket)
     send(c_socket, response, strlen(response), 0);
 }
 
+/**
+ * @brief Parses a string with HTTP header and calls approriate function to handle requests
+ * 
+ * @param msg Pointer to the string with the first line of HTTP header
+ * @param c_socket client socket
+ */
 void parse_http_request(char *msg, int c_socket)
 {
 
@@ -134,18 +169,28 @@ void parse_http_request(char *msg, int c_socket)
 
     else
     {
+        // Sends Bad Request response (400) on unrecognized GET request
         send(c_socket, BAD_REQ, strlen(BAD_REQ), 0);
     }
 }
 
+/**
+ * @brief Parses arguments used to start the program
+ * 
+ * @param argc number of arguments used
+ * @param argv array of strings with arguments
+ * @return unsigned short desired port number
+ */
 unsigned short parse_args(int argc, char **argv)
 {
+    // Checks the parameter count
     if (argc != 2)
     {
         fprintf(stderr, "Incorrect parameters, to run the program use:\n\t./hinfo port_number\n");
         exit(1);
     }
 
+    // Transforms 
     char *check = NULL;
     unsigned long result = strtoul(argv[1], &check, 10);
     if (*check != 0)
@@ -163,6 +208,12 @@ unsigned short parse_args(int argc, char **argv)
     return (unsigned short)result;
 }
 
+/**
+ * @brief Prepares the server socket, binds it and starts listening on it
+ * 
+ * @param port_num port number
+ * @return socket_info_t - structure with server socket info
+ */
 socket_info_t prepare_socket(unsigned short port_num)
 {
     socket_info_t serv;
@@ -184,10 +235,16 @@ socket_info_t prepare_socket(unsigned short port_num)
     serv.addr.sin_port = htons(port_num);
     serv.addr.sin_addr.s_addr = INADDR_ANY;
 
-    // TODO: Check for errors
-    bind(serv.socket, (struct sockaddr *)&(serv.addr), sizeof(serv.addr));
-
-    listen(serv.socket, 3);
+    if (bind(serv.socket, (struct sockaddr *)&(serv.addr), sizeof(serv.addr)) < 0)
+    {
+        perror("Error while binding socket: ");
+        exit(EXIT_FAILURE);
+    }
+    if (listen(serv.socket, 3) < 0)
+    {
+        perror("Erro while starting listening: ");
+        exit(EXIT_FAILURE);
+    }
 
     return serv;
 }
@@ -216,12 +273,7 @@ int main(int argc, char **argv)
 
         close(c_socket);
     }
+
     close(serv.socket);
     exit(0);
 }
-
-/*
-/hostname
-/cpu-name
-/load
-*/
