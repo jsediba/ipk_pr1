@@ -12,12 +12,14 @@
 
 #define BUFFER_SIZE 1024
 
-#define BAD_REQ "HTTP/1.1 400 Bad Request"
+#define BAD_REQ "HTTP/1.1 400 Bad Request\r\n"
+#define NOT_FOUND "HTTP/1.1 404 Not Found\r\n"
 #define HEADER "HTTP/1.1 200 OK\r\nContent-Type:text/plain;\r\n\r\n"
 
 #define HOSTNAME_STR "GET /hostname HTTP/1.1"
 #define CPU_NAME_STR "GET /cpu-name HTTP/1.1"
 #define LOAD_STR "GET /load HTTP/1.1"
+#define FAVICON_STR "GET /favicon.ico HTTP/1.1"
 
 typedef struct socket_info{
     int socket;

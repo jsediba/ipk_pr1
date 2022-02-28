@@ -3,7 +3,7 @@
 
 /**
  * @brief Send a HTTP response with hostname to a client
- * 
+ *
  * @param c_socket client socket
  */
 void get_hostname(int c_socket)
@@ -34,10 +34,9 @@ void get_hostname(int c_socket)
     send(c_socket, response, strlen(response), 0);
 }
 
-
 /**
  * @brief Send a HTTP response with cpu name to a client
- * 
+ *
  * @param c_socket client socket
  */
 void get_cpu_name(int c_socket)
@@ -60,7 +59,6 @@ void get_cpu_name(int c_socket)
 
     pclose(f);
 
-
     // Create a proper HTTP response with cpu model name in plaintext content
     char response[BUFFER_SIZE] = {0};
     strncat(response, HEADER, BUFFER_SIZE - strlen(response));
@@ -69,12 +67,11 @@ void get_cpu_name(int c_socket)
     send(c_socket, response, strlen(response), 0);
 }
 
-
 /**
  * @brief Send a HTTP response with cpu load to a client.
- * 
+ *
  * heavily inspired by https://stackoverflow.com/a/23376195
- * 
+ *
  * @param c_socket client socket
  */
 void get_cpu_load(int c_socket)
@@ -130,7 +127,6 @@ void get_cpu_load(int c_socket)
 
     double cpu_load = 100.0 * ((((double)s_total - (double)f_total) - ((double)s_total_idle - (double)f_total_idle)) / ((double)s_total - (double)f_total));
 
-
     // Create a proper HTTP response with cpu load in plaintext content
 
     char buffer[BUFFER_SIZE] = {0};
@@ -145,7 +141,7 @@ void get_cpu_load(int c_socket)
 
 /**
  * @brief Parses a string with HTTP header and calls approriate function to handle requests
- * 
+ *
  * @param msg Pointer to the string with the first line of HTTP header
  * @param c_socket client socket
  */
@@ -167,6 +163,11 @@ void parse_http_request(char *msg, int c_socket)
         get_cpu_load(c_socket);
     }
 
+    else if (strcmp(msg, FAVICON_STR) == 0)
+    {
+        send(c_socket, NOT_FOUND, strlen(NOT_FOUND), 0);
+    }
+
     else
     {
         // Sends Bad Request response (400) on unrecognized GET request
@@ -176,7 +177,7 @@ void parse_http_request(char *msg, int c_socket)
 
 /**
  * @brief Parses arguments used to start the program
- * 
+ *
  * @param argc number of arguments used
  * @param argv array of strings with arguments
  * @return unsigned short desired port number
@@ -190,7 +191,7 @@ unsigned short parse_args(int argc, char **argv)
         exit(1);
     }
 
-    // Transforms 
+    // Transforms the port number from arg string into unsigned short
     char *check = NULL;
     unsigned long result = strtoul(argv[1], &check, 10);
     if (*check != 0)
@@ -210,31 +211,36 @@ unsigned short parse_args(int argc, char **argv)
 
 /**
  * @brief Prepares the server socket, binds it and starts listening on it
- * 
+ *
  * @param port_num port number
  * @return socket_info_t - structure with server socket info
  */
 socket_info_t prepare_socket(unsigned short port_num)
 {
     socket_info_t serv;
+    
+    // Create the server socket
     if ((serv.socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == 0)
     {
         perror("Error while creating a server socket: ");
         exit(1);
     }
 
+    // Set the server options
     serv.opt = 1;
-
     if (setsockopt(serv.socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &(serv.opt), sizeof(serv.opt)))
     {
         perror("Error while setting socket options: ");
         exit(1);
     }
 
+    // Configure address and ports
     serv.addr.sin_family = AF_INET;
     serv.addr.sin_port = htons(port_num);
     serv.addr.sin_addr.s_addr = INADDR_ANY;
 
+
+    // Bind the socket and start listening
     if (bind(serv.socket, (struct sockaddr *)&(serv.addr), sizeof(serv.addr)) < 0)
     {
         perror("Error while binding socket: ");
@@ -251,13 +257,18 @@ socket_info_t prepare_socket(unsigned short port_num)
 
 int main(int argc, char **argv)
 {
+
+    // Parse args
     unsigned short port_num = parse_args(argc, argv);
 
+    // Create socket
     socket_info_t serv = prepare_socket(port_num);
 
+    // Loop to handle requests
     int c_socket;
     while (1)
     {
+        // Accept a request
         if ((c_socket = accept(serv.socket, NULL, NULL)) < 0)
         {
             perror("Error in accept");
@@ -268,12 +279,15 @@ int main(int argc, char **argv)
         read(c_socket, buffer, BUFFER_SIZE);
 
         char *line = strtok(buffer, "\r");
-
+        
+        // Parse the request and respond accordingly 
         parse_http_request(line, c_socket);
 
+        // Close the client socket
         close(c_socket);
     }
 
+    // Close the server socket
     close(serv.socket);
     exit(0);
 }
