@@ -261,7 +261,7 @@ int main(int argc, char **argv)
     // Parse args
     unsigned short port_num = parse_args(argc, argv);
 
-    // Create socket
+    // Create server socket
     socket_info_t serv = prepare_socket(port_num);
 
     // Loop to handle requests
