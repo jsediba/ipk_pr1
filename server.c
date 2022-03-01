@@ -130,7 +130,7 @@ void get_cpu_load(int c_socket)
     // Create a proper HTTP response with cpu load in plaintext content
 
     char buffer[BUFFER_SIZE] = {0};
-    snprintf(buffer, BUFFER_SIZE, "%.0f", cpu_load);
+    snprintf(buffer, BUFFER_SIZE, "%d", (int)round(cpu_load));
     strncat(buffer, "%", BUFFER_SIZE - strlen(buffer));
 
     char response[BUFFER_SIZE] = {0};

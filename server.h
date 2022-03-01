@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <limits.h>
+#include <math.h>
 
 #define _GNU_SOURCE
 
