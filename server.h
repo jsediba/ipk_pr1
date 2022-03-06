@@ -1,3 +1,9 @@
+/*
+ * @Author: Jakub Šediba, (xsedib00@stud.fit.vutbr.cz) 
+ * @Date: 2022-02-18 18:35:22 
+ * @Last Modified by: Jakub Šediba, (xsedib00@stud.fit.vutbr.cz)
+ * @Last Modified time: 2022-03-06 12:07:14
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

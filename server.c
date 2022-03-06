@@ -1,3 +1,9 @@
+/*
+ * @Author: Jakub Šediba, (xsedib00@stud.fit.vutbr.cz) 
+ * @Date: 2022-02-18 18:32:11
+ * @Last Modified by: Jakub Šediba, (xsedib00@stud.fit.vutbr.cz)
+ * @Last Modified time: 2022-03-06 12:07:18
+ */
 
 #include "server.h"
 
